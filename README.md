@@ -6,7 +6,11 @@ Linux systems.
 
 `geyes` doesn't have a window border and has a transparent background
 with only the two eyes showing and the pupils moving. `Ctrl + q` or
-macOS, `Cmd+q`, exits the application.
+macOS, `Cmd + q`, exits the application.
+
+Drag the eyes to move them elsewhere on the screen. A window without a
+border has no title bar to take hold of, so the eyes themselves are the
+handle.
 
 As the `g` in `geyes` suggests, the app is written in Go and uses the
 [Fyne framework](https://fyne.io/) for GUI components.
