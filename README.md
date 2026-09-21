@@ -1,5 +1,10 @@
 # yeyes
 
+<img
+  src="screenshot.png"
+  alt="yeyes"
+/>
+
 This is a silly app with two eyes following your mouse pointer
 around. It's similar to `xeyes` from X11/X.org found on many Unix and
 Linux systems.

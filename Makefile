@@ -10,7 +10,7 @@ $(BINARY): $(SOURCES)
 	go build -o build/$(BINARY) .
 
 run: $(BINARY)
-	./$(BINARY)
+	./build/$(BINARY)
 
 install: $(BINARY)
 	install -d $(PREFIX)/bin
