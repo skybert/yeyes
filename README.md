@@ -1,10 +1,10 @@
-# geyes
+# yeyes
 
 This is a silly app with two eyes following your mouse pointer
 around. It's similar to `xeyes` from X11/X.org found on many Unix and
 Linux systems.
 
-`geyes` doesn't have a window border and has a transparent background
+`yeyes` doesn't have a window border and has a transparent background
 with only the two eyes showing and the pupils moving. `Ctrl + q` or
 macOS, `Cmd + q`, exits the application.
 
@@ -12,8 +12,8 @@ Drag the eyes to move them elsewhere on the screen. A window without a
 border has no title bar to take hold of, so the eyes themselves are the
 handle.
 
-As the `g` in `geyes` suggests, the app is written in Go and uses the
-[Fyne framework](https://fyne.io/) for GUI components.
+The app is written in Go and uses the [Fyne framework](https://fyne.io/)
+for GUI components.
 
 # Building
 ```
@@ -31,7 +31,7 @@ $ make run
 $ make install
 ```
 
-This installs `geyes` to `~/.local/bin`.
+This installs `yeyes` to `~/.local/bin`.
 
 # License
 

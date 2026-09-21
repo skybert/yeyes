@@ -1,4 +1,4 @@
-BINARY := geyes
+BINARY := yeyes
 PREFIX ?= $(HOME)/.local
 
 SOURCES := $(wildcard *.go) $(wildcard *.m) go.mod go.sum
@@ -6,16 +6,17 @@ SOURCES := $(wildcard *.go) $(wildcard *.m) go.mod go.sum
 all: $(BINARY)
 
 $(BINARY): $(SOURCES)
-	go build -o $(BINARY) .
+	mkdir -p build
+	go build -o build/$(BINARY) .
 
 run: $(BINARY)
 	./$(BINARY)
 
 install: $(BINARY)
 	install -d $(PREFIX)/bin
-	install -m 755 $(BINARY) $(PREFIX)/bin/$(BINARY)
+	install -m 755 build/$(BINARY) $(PREFIX)/bin/$(BINARY)
 
 clean:
-	rm -f $(BINARY)
+	rm -rf build
 
 .PHONY: all run install clean

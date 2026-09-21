@@ -11,21 +11,31 @@ import (
 )
 
 const (
-	// eyeStroke is the thickness of the outline around each eyeball.
-	eyeStroke = 3
-
 	// eyeGap is how much of the total width is left empty between the eyes.
 	eyeGap = 0.06
 
-	// pupilSize is the pupil radius as a fraction of the eyeball's narrower
-	// radius, which is the horizontal one on our upright ovals.
-	pupilSize = 0.36
+	// borderWidth is the thickness of the black border drawn around the white of
+	// an eye. Fyne draws an ellipse's stroke inside its bounds, so this eats into
+	// the white rather than adding to the size of the eye.
+	borderWidth = 8
+
+	// pupilSize is the pupil radius as a fraction of the eye's narrower radius,
+	// which is the horizontal one on our upright ovals. Small, as xeyes has it.
+	pupilSize = 0.22
+
+	// pupilMargin keeps the pupil from quite touching the border, so that the
+	// two never look like they have merged.
+	pupilMargin = 1
+
+	// eyeMargin keeps the eyes just clear of the window edge. An ellipse that
+	// touches it loses the smoothing on its outermost pixels and comes out
+	// looking as though it has been cut off.
+	eyeMargin = 2
 )
 
 var (
-	eyeballColour = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
-	outlineColour = color.NRGBA{A: 0xff}
-	pupilColour   = color.NRGBA{A: 0xff}
+	blackColour = color.NRGBA{A: 0xff}
+	whiteColour = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}
 )
 
 // Declare conformity with the interfaces that let the eyes be dragged around.
@@ -73,39 +83,90 @@ func (e *eyes) DragEnd() { e.drag.release() }
 
 func (e *eyes) CreateRenderer() fyne.WidgetRenderer {
 	r := &eyesRenderer{eyes: e}
-	for i := range r.balls {
-		ball := canvas.NewEllipse(eyeballColour)
-		ball.StrokeColor = outlineColour
-		ball.StrokeWidth = eyeStroke
+	for i := range r.pair {
+		r.pair[i] = newEye()
+		r.objects = append(r.objects, r.pair[i].objects()...)
+	}
+	return r
+}
 
-		r.balls[i] = ball
-		r.pupils[i] = canvas.NewCircle(pupilColour)
+// eye is a single eye: the white of it inside a black border, and the pupil.
+type eye struct {
+	ball  *canvas.Ellipse
+	pupil *canvas.Circle
+
+	// pos and size are the area the whole eye occupies.
+	pos  fyne.Position
+	size fyne.Size
+}
+
+func newEye() *eye {
+	ball := canvas.NewEllipse(whiteColour)
+	ball.StrokeColor = blackColour
+	ball.StrokeWidth = borderWidth
+
+	return &eye{ball: ball, pupil: canvas.NewCircle(blackColour)}
+}
+
+// objects lists the eye's parts in the order they are drawn, pupil last so that
+// it sits on top of the white.
+func (e *eye) objects() []fyne.CanvasObject {
+	return []fyne.CanvasObject{e.ball, e.pupil}
+}
+
+// resize puts the eye in the given area.
+func (e *eye) resize(pos fyne.Position, size fyne.Size) {
+	e.pos, e.size = pos, size
+
+	e.ball.Move(pos)
+	e.ball.Resize(size)
+}
+
+// lookAt moves the pupil as close to target as it can get without straying into
+// the border, the way xeyes does it.
+func (e *eye) lookAt(target fyne.Position) {
+	radiusX, radiusY := e.size.Width/2, e.size.Height/2
+	centreX, centreY := e.pos.X+radiusX, e.pos.Y+radiusY
+	pupilRadius := fyne.Min(radiusX, radiusY) * pupilSize
+
+	// How far the pupil's centre may travel from the eye's centre. Following
+	// the shape of the eye lets the pupil go further up and down than sideways.
+	reachX := radiusX - borderWidth - pupilRadius - pupilMargin
+	reachY := radiusY - borderWidth - pupilRadius - pupilMargin
+
+	towardsX := target.X - centreX
+	towardsY := target.Y - centreY
+
+	var offsetX, offsetY float32
+	if away := float32(math.Hypot(float64(towardsX), float64(towardsY))); away > 0.5 {
+		// Look all the way out once the target has left the eye, and
+		// proportionally less when it is inside.
+		out := fyne.Min(1, away/radiusX)
+		offsetX = towardsX / away * reachX * out
+		offsetY = towardsY / away * reachY * out
 	}
 
-	// The eyeballs come first so that the pupils are drawn on top of them.
-	r.objects = []fyne.CanvasObject{r.balls[0], r.balls[1], r.pupils[0], r.pupils[1]}
-	return r
+	e.pupil.Resize(fyne.NewSize(pupilRadius*2, pupilRadius*2))
+	e.pupil.Move(fyne.NewPos(centreX+offsetX-pupilRadius, centreY+offsetY-pupilRadius))
 }
 
 type eyesRenderer struct {
 	eyes *eyes
 
-	balls   [2]*canvas.Ellipse
-	pupils  [2]*canvas.Circle
+	pair    [2]*eye
 	objects []fyne.CanvasObject
 }
 
 func (r *eyesRenderer) Layout(size fyne.Size) {
-	gap := size.Width * eyeGap
-	ball := fyne.NewSize((size.Width-gap)/2-eyeStroke, size.Height-eyeStroke)
+	area := fyne.NewSize(size.Width-2*eyeMargin, size.Height-2*eyeMargin)
+	gap := area.Width * eyeGap
+	eyeSize := fyne.NewSize((area.Width-gap)/2, area.Height)
 
-	for i, eye := range r.balls {
-		x := eyeStroke/2 + float32(i)*(ball.Width+eyeStroke+gap)
-		eye.Move(fyne.NewPos(x, eyeStroke/2))
-		eye.Resize(ball)
+	for i, e := range r.pair {
+		e.resize(fyne.NewPos(eyeMargin+float32(i)*(eyeSize.Width+gap), eyeMargin), eyeSize)
 	}
 
-	r.aimPupils()
+	r.aim()
 }
 
 func (r *eyesRenderer) MinSize() fyne.Size {
@@ -113,7 +174,7 @@ func (r *eyesRenderer) MinSize() fyne.Size {
 }
 
 func (r *eyesRenderer) Refresh() {
-	r.aimPupils()
+	r.aim()
 }
 
 func (r *eyesRenderer) Objects() []fyne.CanvasObject {
@@ -122,35 +183,8 @@ func (r *eyesRenderer) Objects() []fyne.CanvasObject {
 
 func (r *eyesRenderer) Destroy() {}
 
-// aimPupils moves each pupil as close to the target as it can get without
-// leaving its eyeball, the way xeyes does it.
-func (r *eyesRenderer) aimPupils() {
-	for i, ball := range r.balls {
-		size, pos := ball.Size(), ball.Position()
-		radiusX, radiusY := size.Width/2, size.Height/2
-		centreX, centreY := pos.X+radiusX, pos.Y+radiusY
-		pupilRadius := fyne.Min(radiusX, radiusY) * pupilSize
-
-		// How far the pupil's centre may travel from the eyeball's centre,
-		// keeping the pupil clear of the outline. Following the shape of the
-		// eyeball means the pupil can go further up and down than sideways.
-		reachX := radiusX - pupilRadius - eyeStroke
-		reachY := radiusY - pupilRadius - eyeStroke
-
-		toTargetX := r.eyes.target.X - centreX
-		toTargetY := r.eyes.target.Y - centreY
-
-		var offsetX, offsetY float32
-		if away := float32(math.Hypot(float64(toTargetX), float64(toTargetY))); away > 0.5 {
-			// Look all the way out once the target has left the eyeball, and
-			// proportionally less when it is inside.
-			out := fyne.Min(1, away/radiusX)
-			offsetX = toTargetX / away * reachX * out
-			offsetY = toTargetY / away * reachY * out
-		}
-
-		pupil := r.pupils[i]
-		pupil.Resize(fyne.NewSize(pupilRadius*2, pupilRadius*2))
-		pupil.Move(fyne.NewPos(centreX+offsetX-pupilRadius, centreY+offsetY-pupilRadius))
+func (r *eyesRenderer) aim() {
+	for _, e := range r.pair {
+		e.lookAt(r.eyes.target)
 	}
 }

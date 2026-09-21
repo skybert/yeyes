@@ -2,7 +2,7 @@
 
 #include "pointer_darwin.h"
 
-bool geyesPointerInWindow(uintptr_t nsWindow, geyesPointer *out) {
+bool yeyesPointerInWindow(uintptr_t nsWindow, yeyesPointer *out) {
   NSWindow *window = (NSWindow *)(void *)nsWindow;
   if (window == nil) {
     return false;

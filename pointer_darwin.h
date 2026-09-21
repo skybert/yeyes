@@ -4,17 +4,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// geyesPointer holds where the mouse pointer is relative to the top left corner
+// yeyesPointer holds where the mouse pointer is relative to the top left corner
 // of a window's content, the size of that content, and where it sits on the
 // desktop. All values are in points.
 typedef struct {
   double x, y;
   double width, height;
   double windowX, windowY;
-} geyesPointer;
+} yeyesPointer;
 
-// geyesPointerInWindow fills in out for the given NSWindow. Must be called on
+// yeyesPointerInWindow fills in out for the given NSWindow. Must be called on
 // the main thread.
-bool geyesPointerInWindow(uintptr_t nsWindow, geyesPointer *out);
+bool yeyesPointerInWindow(uintptr_t nsWindow, yeyesPointer *out);
 
 #endif

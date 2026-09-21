@@ -21,14 +21,14 @@ func pointerInWindow(win fyne.Window) (pointerState, bool) {
 		return pointerState{}, false
 	}
 
-	var found C.geyesPointer
+	var found C.yeyesPointer
 	ok = false
 	native.RunNative(func(context any) {
 		mac, isMac := context.(driver.MacWindowContext)
 		if !isMac || mac.NSWindow == 0 {
 			return
 		}
-		ok = bool(C.geyesPointerInWindow(C.uintptr_t(mac.NSWindow), &found))
+		ok = bool(C.yeyesPointerInWindow(C.uintptr_t(mac.NSWindow), &found))
 	})
 	if !ok {
 		return pointerState{}, false

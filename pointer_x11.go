@@ -13,14 +13,14 @@ typedef struct {
   double x, y;
   double width, height;
   double windowX, windowY;
-} geyesPointer;
+} yeyesPointer;
 
-// geyesPointerInWindow fills in out for the given X11 window, in pixels.
+// yeyesPointerInWindow fills in out for the given X11 window, in pixels.
 // XQueryPointer answers even when the pointer is over some other window, which
 // is what lets the eyes follow it across the whole screen.
 //
 // Only ever called from the main thread, so the cached display needs no lock.
-static bool geyesPointerInWindow(uintptr_t xWindow, geyesPointer *out) {
+static bool yeyesPointerInWindow(uintptr_t xWindow, yeyesPointer *out) {
   static Display *display = NULL;
   if (display == NULL) {
     display = XOpenDisplay(NULL);
@@ -68,14 +68,14 @@ func pointerInWindow(win fyne.Window) (pointerState, bool) {
 		return pointerState{}, false
 	}
 
-	var found C.geyesPointer
+	var found C.yeyesPointer
 	ok = false
 	native.RunNative(func(context any) {
 		x11, isX11 := context.(driver.X11WindowContext)
 		if !isX11 || x11.WindowHandle == 0 {
 			return
 		}
-		ok = bool(C.geyesPointerInWindow(C.uintptr_t(x11.WindowHandle), &found))
+		ok = bool(C.yeyesPointerInWindow(C.uintptr_t(x11.WindowHandle), &found))
 	})
 	if !ok {
 		return pointerState{}, false

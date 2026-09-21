@@ -5,7 +5,7 @@
 // Software Foundation, either version 3 of the License, or (at your option)
 // any later version. See LICENSE for the full text.
 
-// geyes shows a pair of eyes that follow the mouse pointer around the screen,
+// yeyes shows a pair of eyes that follow the mouse pointer around the screen,
 // in the spirit of xeyes from X11.
 package main
 
@@ -18,7 +18,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 )
 
-const appID = "net.skybert.geyes"
+const appID = "net.skybert.yeyes"
 
 // The size of the window, in Fyne's device independent units. Taller than it
 // is wide per eye, so that the eyes come out as upright ovals.
@@ -32,7 +32,7 @@ func main() {
 	a.Settings().SetTheme(&transparentTheme{Theme: theme.DefaultTheme()})
 
 	win := newEyesWindow(a)
-	win.SetTitle("geyes")
+	win.SetTitle("yeyes")
 	win.SetPadded(false)
 	win.Resize(fyne.NewSize(windowWidth, windowHeight))
 	win.SetFixedSize(true)
@@ -65,7 +65,7 @@ func newEyesWindow(a fyne.App) fyne.Window {
 	if desk, ok := a.Driver().(desktop.Driver); ok {
 		return desk.CreateSplashWindow()
 	}
-	return a.NewWindow("geyes")
+	return a.NewWindow("yeyes")
 }
 
 // addQuitShortcuts wires up Ctrl+Q and, for macOS, Cmd+Q. Without a window

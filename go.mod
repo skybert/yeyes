@@ -1,4 +1,4 @@
-module github.com/skybert/geyes
+module github.com/skybert/yeyes
 
 go 1.27.1
 

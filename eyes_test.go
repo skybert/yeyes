@@ -1,12 +1,21 @@
 package main
 
 import (
+	"image/color"
 	"math"
+	"os"
 	"testing"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/test"
 )
+
+func TestMain(m *testing.M) {
+	// Canvas objects ask the running app to repaint them when they are moved, so
+	// one has to exist even though nothing here is ever drawn.
+	test.NewApp()
+	os.Exit(m.Run())
+}
 
 // layoutEyes builds a pair of eyes looking at target and hands back the
 // renderer, so that the geometry can be inspected without a running app.
@@ -16,40 +25,104 @@ func layoutEyes(target fyne.Position) *eyesRenderer {
 	r.Layout(fyne.NewSize(windowWidth, windowHeight))
 
 	e.target = target
-	r.aimPupils()
+	r.aim()
 	return r
 }
 
-// insideEyeball reports how far out of its eyeball a pupil reaches, as a
-// fraction of the room it has: at most 1 means it is still fully covered.
-func insideEyeball(ball *canvas.Ellipse, pupil *canvas.Circle) float64 {
-	ballSize, ballPos := ball.Size(), ball.Position()
-	radiusX, radiusY := float64(ballSize.Width)/2, float64(ballSize.Height)/2
-	centreX := float64(ballPos.X) + radiusX
-	centreY := float64(ballPos.Y) + radiusY
-
-	pupilRadius := float64(pupil.Size().Width) / 2
-	pupilX := float64(pupil.Position().X) + pupilRadius
-	pupilY := float64(pupil.Position().Y) + pupilRadius
-
-	outX := (pupilX - centreX) / (radiusX - pupilRadius)
-	outY := (pupilY - centreY) / (radiusY - pupilRadius)
-	return math.Hypot(outX, outY)
+func eyeCentre(e *eye) fyne.Position {
+	return fyne.NewPos(e.pos.X+e.size.Width/2, e.pos.Y+e.size.Height/2)
 }
 
-func TestEyeballsAreUprightOvals(t *testing.T) {
+func pupilCentre(e *eye) fyne.Position {
+	radius := e.pupil.Size().Width / 2
+	return fyne.NewPos(e.pupil.Position().X+radius, e.pupil.Position().Y+radius)
+}
+
+// pupilOffset is how far the pupil has moved from the centre of its eye.
+func pupilOffset(e *eye) float64 {
+	centre, pupil := eyeCentre(e), pupilCentre(e)
+	return math.Hypot(float64(pupil.X-centre.X), float64(pupil.Y-centre.Y))
+}
+
+// pupilClearance is the gap between the pupil and the black border. A negative
+// gap means the pupil has strayed into the border.
+//
+// The pupil is round and the white it moves in is an oval, so the reach used to
+// place it is not by itself proof that it fits: on the diagonals a point on the
+// reach oval sits closer to the border than it does straight up or sideways.
+// This measures the real distance instead.
+func pupilClearance(e *eye) float64 {
+	radiusX := float64(e.size.Width)/2 - borderWidth
+	radiusY := float64(e.size.Height)/2 - borderWidth
+	centre, pupil := eyeCentre(e), pupilCentre(e)
+	offsetX := float64(pupil.X - centre.X)
+	offsetY := float64(pupil.Y - centre.Y)
+
+	// The nearest point on an oval has no tidy closed form, so walk around it.
+	nearest := math.MaxFloat64
+	const steps = 3600
+	for step := range steps {
+		around := float64(step) * 2 * math.Pi / steps
+		nearest = math.Min(nearest, math.Hypot(
+			radiusX*math.Cos(around)-offsetX,
+			radiusY*math.Sin(around)-offsetY,
+		))
+	}
+
+	return nearest - float64(e.pupil.Size().Width)/2
+}
+
+func TestEyesAreUprightOvals(t *testing.T) {
 	r := layoutEyes(fyne.NewPos(0, 0))
 
-	for i, ball := range r.balls {
-		size := ball.Size()
-		if size.Height <= size.Width {
-			t.Errorf("eyeball %d is %v, want taller than it is wide", i, size)
+	for i, e := range r.pair {
+		if e.size.Height <= e.size.Width {
+			t.Errorf("eye %d is %v, want taller than it is wide", i, e.size)
 		}
 	}
 }
 
-func TestPupilsStayInsideEyeballs(t *testing.T) {
-	// Targets all around, well outside the window, plus a couple within it.
+// TestEyesAreWhiteBehindABlackBorder checks the xeyes look: opaque white,
+// ringed by a black border thick enough to read as one.
+func TestEyesAreWhiteBehindABlackBorder(t *testing.T) {
+	r := layoutEyes(fyne.NewPos(0, 0))
+
+	for i, e := range r.pair {
+		if got := e.ball.FillColor; got != color.Color(whiteColour) {
+			t.Errorf("eye %d fills with %v, want %v", i, got, whiteColour)
+		}
+		if got := e.ball.StrokeColor; got != color.Color(blackColour) {
+			t.Errorf("eye %d is bordered %v, want %v", i, got, blackColour)
+		}
+
+		// A hairline would not look like xeyes, and a border wider than the white
+		// it surrounds would swallow the eye.
+		border := e.ball.StrokeWidth
+		if thinnest := e.size.Width / 20; border < thinnest {
+			t.Errorf("eye %d border is %v thick, want at least %v", i, border, thinnest)
+		}
+		if thickest := e.size.Width / 4; border > thickest {
+			t.Errorf("eye %d border is %v thick, want at most %v", i, border, thickest)
+		}
+	}
+}
+
+// TestPupilsAreSmall keeps the pupils dots rather than the wide discs that made
+// the eyes look startled.
+func TestPupilsAreSmall(t *testing.T) {
+	r := layoutEyes(fyne.NewPos(0, 0))
+
+	for i, e := range r.pair {
+		pupil, white := e.pupil.Size().Width, e.size.Width-2*borderWidth
+		if pupil > white/3 {
+			t.Errorf("pupil %d is %v across in %v of white, want no more than a third", i, pupil, white)
+		}
+	}
+}
+
+func TestPupilsStayInsideEyes(t *testing.T) {
+	// Targets all around, well outside the window, plus a couple within it. The
+	// diagonals matter most: that is where the pupil comes closest to the border.
 	targets := []fyne.Position{
 		{X: -2000, Y: -2000}, {X: windowWidth / 2, Y: -2000}, {X: 2000, Y: -2000},
 		{X: -2000, Y: windowHeight / 2}, {X: 2000, Y: windowHeight / 2},
@@ -59,25 +132,38 @@ func TestPupilsStayInsideEyeballs(t *testing.T) {
 
 	for _, target := range targets {
 		r := layoutEyes(target)
-		for i, ball := range r.balls {
-			if out := insideEyeball(ball, r.pupils[i]); out > 1 {
-				t.Errorf("looking at %v, pupil %d reaches %.2f times its room", target, i, out)
+		for i, e := range r.pair {
+			if gap := pupilClearance(e); gap < 0 {
+				t.Errorf("looking at %v, pupil %d crosses the border by %.2f", target, i, -gap)
 			}
 		}
 	}
 }
 
+// TestPupilsPointAtTheTarget checks each pupil against the centre of its own
+// eye, since an eye off to one side is already looking sideways at anything in
+// the middle of the window.
 func TestPupilsPointAtTheTarget(t *testing.T) {
-	middle := layoutEyes(fyne.NewPos(windowWidth/2, windowHeight/2))
-	left := layoutEyes(fyne.NewPos(-2000, windowHeight/2))
+	middle := float32(windowHeight / 2)
+	left := layoutEyes(fyne.NewPos(-2000, middle))
+	right := layoutEyes(fyne.NewPos(2000, middle))
 	up := layoutEyes(fyne.NewPos(windowWidth/2, -2000))
+	down := layoutEyes(fyne.NewPos(windowWidth/2, 2000))
 
-	for i := range middle.pupils {
-		if got, want := left.pupils[i].Position().X, middle.pupils[i].Position().X; got >= want {
-			t.Errorf("pupil %d is at x %v looking left, want less than %v", i, got, want)
+	for i := range left.pair {
+		centre := eyeCentre(left.pair[i])
+
+		if got := pupilCentre(left.pair[i]).X; got >= centre.X {
+			t.Errorf("pupil %d is at x %v looking left, want left of %v", i, got, centre.X)
 		}
-		if got, want := up.pupils[i].Position().Y, middle.pupils[i].Position().Y; got >= want {
-			t.Errorf("pupil %d is at y %v looking up, want less than %v", i, got, want)
+		if got := pupilCentre(right.pair[i]).X; got <= centre.X {
+			t.Errorf("pupil %d is at x %v looking right, want right of %v", i, got, centre.X)
+		}
+		if got := pupilCentre(up.pair[i]).Y; got >= centre.Y {
+			t.Errorf("pupil %d is at y %v looking up, want above %v", i, got, centre.Y)
+		}
+		if got := pupilCentre(down.pair[i]).Y; got <= centre.Y {
+			t.Errorf("pupil %d is at y %v looking down, want below %v", i, got, centre.Y)
 		}
 	}
 }
@@ -86,14 +172,14 @@ func TestPupilsPointAtTheTarget(t *testing.T) {
 // target sits right on top of it, rather than jumping to one side.
 func TestPupilsLookAtTheirOwnEye(t *testing.T) {
 	r := layoutEyes(fyne.NewPos(0, 0))
-	ball := r.balls[0]
+	first := r.pair[0]
 	centre := fyne.NewPos(
-		ball.Position().X+ball.Size().Width/2,
-		ball.Position().Y+ball.Size().Height/2,
+		first.pos.X+first.size.Width/2,
+		first.pos.Y+first.size.Height/2,
 	)
 
 	r = layoutEyes(centre)
-	if out := insideEyeball(r.balls[0], r.pupils[0]); out > 0.01 {
-		t.Errorf("pupil sits %.2f out of centre, want centred", out)
+	if off := pupilOffset(r.pair[0]); off > 0.5 {
+		t.Errorf("pupil sits %.2f from the centre of its eye, want centred", off)
 	}
 }
