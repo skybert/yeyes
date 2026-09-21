@@ -41,3 +41,9 @@ This installs `yeyes` to `~/.local/bin`.
 # License
 
 The app is released under GPLv3, see [LICENSE](LICENSE).
+
+# AI policy
+
+The first verison of `yeyes` was mostly vibe coded after my spec and
+prompts. Contributions may similarly use AI, with the requirement that
+all code is understood _before_ opening the PR.
